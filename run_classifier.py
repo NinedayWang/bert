@@ -18,6 +18,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import codecs
 import collections
 import csv
 import os
@@ -183,6 +184,17 @@ class DataProcessor(object):
       for line in reader:
         lines.append(line)
       return lines
+
+  @classmethod
+  def _read_txt(cls, input_file, quotechar=None):
+    """Reads a tab separated value file."""
+    dicts = []
+    with codecs.open(input_file, 'r', 'utf-8') as infs:
+        for inf in infs:
+            inf = inf.strip().split()
+            # dicts.append(inf)
+            dicts.append([" ".join(inf[:-1]), inf[-1]])
+    return dicts
 
 
 class XnliProcessor(DataProcessor):
@@ -355,75 +367,33 @@ class ColaProcessor(DataProcessor):
     return examples
 
 class SelfProcessor(DataProcessor):
-    """Processor for the CoLA data set (GLUE version)."""
+    """Processor for the intent data set."""
 
     def get_train_examples(self, data_dir):
-        file_path = os.path.join(data_dir, 'train.csv')
-        with open(file_path, 'r', encoding="utf-8") as f:
-            reader = f.readlines()
-        examples = []
-        for index, line in enumerate(reader):
-            guid = 'train-%d' % index
-            split_line = line.strip().split("\t")
-            print(split_line)
-            text_a = tokenization.convert_to_unicode(split_line[1])
-            text_b = tokenization.convert_to_unicode(split_line[2])
-            label = split_line[3]
-            examples.append(InputExample(guid=guid, text_a=text_a,
-                                         text_b=text_b, label=label))
-        return examples
+        return self._create_examples(
+            self._read_txt(os.path.join(data_dir, "intent_train.txt")), 'train')
 
     def get_dev_examples(self, data_dir):
-        file_path = os.path.join(data_dir, 'val.csv')
-        with open(file_path, 'r', encoding="utf-8") as f:
-            reader = f.readlines()
-        examples = []
-        for index, line in enumerate(reader):
-            guid = 'train-%d' % index
-            split_line = line.strip().split("\t")
-            text_a = tokenization.convert_to_unicode(split_line[1])
-            text_b = tokenization.convert_to_unicode(split_line[2])
-            label = split_line[3]
-            examples.append(InputExample(guid=guid, text_a=text_a,
-                                         text_b=text_b, label=label))
-        return examples
+        return self._create_examples(
+            self._read_txt(os.path.join(data_dir, "intent_val.txt")), 'dev')
 
     def get_test_examples(self, data_dir):
-        """See base class."""
-        file_path = os.path.join(data_dir, 'test.csv')
-        with open(file_path, 'r', encoding="utf-8") as f:
-            reader = f.readlines()
-        examples = []
-        for index, line in enumerate(reader):
-            guid = 'train-%d' % index
-            split_line = line.strip().split("\t")
-            text_a = tokenization.convert_to_unicode(split_line[1])
-            text_b = tokenization.convert_to_unicode(split_line[2])
-            label = split_line[3]
-            examples.append(InputExample(guid=guid, text_a=text_a,
-                                         text_b=text_b, label=label))
-        return examples
+        return self._create_examples(
+            self._read_txt(os.path.join(data_dir, "intent_test.txt")), 'test')
 
     def get_labels(self):
-        """See base class."""
-        return ["0", "1"]
+        return ['ask_match_location', 'ask_match_price', 'ask_match_seat', 'ask_match_time',
+                'ask_scenic_position', 'ask_scenic_price', 'ask_scenic_time',
+                'ask_traffic', 'order_match_ticket', 'order_scenic_ticket', 'ask_vehicle_time']
 
-    def _create_examples(self, lines, set_type):
-        """Creates examples for the training and dev sets."""
+    def _create_examples(self, dicts, set_type):
         examples = []
-        for (i, line) in enumerate(lines):
-            # Only the test set has a header
-            if set_type == "test" and i == 0:
-                continue
+        for (i, infor) in enumerate(dicts):
             guid = "%s-%s" % (set_type, i)
-            if set_type == "test":
-                text_a = tokenization.convert_to_unicode(line[1])
-                label = "0"
-            else:
-                text_a = tokenization.convert_to_unicode(line[3])
-                label = tokenization.convert_to_unicode(line[1])
+            text_a = infor[0]
+            label = infor[1]
             examples.append(
-                InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
+                InputExample(guid=guid, text_a=text_a, label=label))
         return examples
 
 def convert_single_example(ex_index, example, label_list, max_seq_length,
@@ -817,7 +787,7 @@ def main(_):
       "mnli": MnliProcessor,
       "mrpc": MrpcProcessor,
       "xnli": XnliProcessor,
-      "similarity": SelfProcessor  # 添加自己的processor
+      "intent": SelfProcessor  # 添加自己的processor
   }
 
   if not FLAGS.do_train and not FLAGS.do_eval and not FLAGS.do_predict:
